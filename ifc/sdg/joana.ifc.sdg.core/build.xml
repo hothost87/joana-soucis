@@ -82,6 +82,16 @@
 			<fileset dir="${joana.ifc.sdg.util.base.dir}/src">
 				<filename name="**/*.java" />
 			</fileset>
+            <!-- com.ibm.wala.core code -->
+            <fileset dir="${com.ibm.wala.core.base.dir}/src">
+                <filename name="**/*.java" />
+            </fileset>
+            <fileset dir="${com.ibm.wala.shrike.base.dir}/src">
+                <filename name="**/*.java" />
+            </fileset>
+            <fileset dir="${com.ibm.wala.util.base.dir}/src">
+                <filename name="**/*.java" />
+            </fileset>
 		</copy>
 	</target>
 
