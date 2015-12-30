@@ -76,6 +76,14 @@ public class JoanaConverter {
         }
         sdg.setNode2Instr(b.getPDGNode2IIndex());
         sdg.setEntryToCGNode(b.getEntryNode2CGNode());
+        
+//        sdg.setNode2wala(b.getPDGNode2wala());
+        sdg.setwala2Node(b.getwala2PDGNode());
+        
+        sdg.setnode2def(b.getPDGNode2def());
+        
+//        sdg.setwalaCache(b.getwalaCache());
+        
         progress.done();
 
 		return sdg;

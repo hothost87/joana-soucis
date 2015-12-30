@@ -246,6 +246,12 @@ public class AnnotationTypeBasedNodeCollector extends SDGProgramPartVisitor<Set<
 			} else if (isParameterNodeOfKind(next, type)) {
 				base.add(next);
 			}
+			//TODO: figure out the correct solution of root parameter
+//			else {
+//				//hack
+//				base.add(next);
+//			}
+			
 			for (SDGEdge e : sdg.getOutgoingEdgesOfKind(next, SDGEdge.Kind.PARAMETER_STRUCTURE)) {
 				SDGNode succNode = e.getTarget();
 				if (!visited.contains(succNode)) {
@@ -253,7 +259,6 @@ public class AnnotationTypeBasedNodeCollector extends SDGProgramPartVisitor<Set<
 				}
 			}
 		}
-
 	}
 
 	private boolean hasFields(SDGNode param) {

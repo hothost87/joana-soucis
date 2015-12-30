@@ -54,6 +54,24 @@ public class IFCAnnotationApplicator {
 		}
 	}
 	
+	public void applyAnnotationsSDG(Collection<IFCAnnotationSDG> anns) {
+//		AnnotationTypeBasedNodeCollector collector = program.getNodeCollector();
+		for (IFCAnnotationSDG ann : anns) {
+			if (ann.getType() == AnnotationType.SOURCE || ann.getType() == AnnotationType.SINK) {
+				annotationDebug.outln(String.format("Annnotation nodes for %s '%s' of security level %s...", ann.getType().toString(), ann.getSDGNode(), ann.getLevel()));
+			}
+//			coll.setNodeFilter(ann.getType().getNodeFilter());
+//			Collection<SDGNode> toAnnotate = coll.collectNodes(ann.getProgramPart());
+//			for (SDGNode n : toAnnotate) {
+//				annotateNode(n, ann);
+//			}
+//			Set<SDGNode> toAnnotate = collector.collectNodes(ann.getProgramPart(), ann.getType());
+//			for (SDGNode n : toAnnotate) {
+				annotateNode(ann.getSDGNode(), ann);
+//			}
+		}
+	}
+	
 	public Map<SecurityNode, NodeAnnotationInfo> getAnnotatedNodes() {
 		return new HashMap<SecurityNode, NodeAnnotationInfo>(annotatedNodes);
 	}
@@ -137,6 +155,21 @@ public class IFCAnnotationApplicator {
 			annotatedNodes.remove(sn);
 		}
 	}
+	
+	public void unapplyAnnotationsSDG(Collection<IFCAnnotationSDG> anns) {
+		List<SecurityNode> toDelete = new LinkedList<SecurityNode>();
+		for (NodeAnnotationInfo nai : annotatedNodes.values()) {
+			if (anns.contains(nai.getAnnotationSDG())) {
+				nai.getNode().setRequired(null);
+				nai.getNode().setProvided(null);
+				toDelete.add(nai.getNode());
+			}
+		}
+
+		for (SecurityNode sn : toDelete) {
+			annotatedNodes.remove(sn);
+		}
+	}
 
 	private Collection<SDGMethod> obtainMethods(SDGNode node) {
 		return program.getMethods(JavaMethodSignature.fromString(program.getSDG().getEntry(node).getBytecodeMethod()));
@@ -172,5 +205,37 @@ public class IFCAnnotationApplicator {
 			}
 			annotatedNodes.put(sNode, nai);
 		}
+	}
+	
+	private void annotateNode(SDGNode node, IFCAnnotationSDG ann) {
+//		if (ann.getContext() == null || obtainMethods(node).contains(ann.getContext())) {
+			SecurityNode sNode = (SecurityNode) node;
+			NodeAnnotationInfo nai;
+			switch (ann.getType()) {
+			case SOURCE:
+				sNode.setProvided(ann.getLevel());
+				annotationDebug.outln(String.format("Annotated node %s of kind %s as SOURCE of level '%s'", node.toString(), node.getKind(), ann.getLevel()));
+				nai = new NodeAnnotationInfo(sNode, ann, NodeAnnotationInfo.PROV);
+				break;
+			case SINK:
+				sNode.setRequired(ann.getLevel());
+				annotationDebug.outln(String.format("Annotated node %s of kind %s as SINK of level '%s'", node.toString(), node.getKind(), ann.getLevel()));
+				nai = new NodeAnnotationInfo(sNode, ann, NodeAnnotationInfo.REQ);
+				break;
+//			case DECLASS:
+//				sNode.setRequired(ann.getLevel1());
+//				sNode.setProvided(ann.getLevel2());
+//				nai = new NodeAnnotationInfo(sNode, ann, NodeAnnotationInfo.BOTH);
+//				break;
+			default:
+				throw new IllegalStateException();
+			}
+
+			if (debug.isEnabled()) {
+				debug.outln("Annotated node " + nai.getNode() + " as " + nai.getAnnotation().getLevel1() + " "
+					+ nai.getAnnotation().getType());
+			}
+			annotatedNodes.put(sNode, nai);
+//		}
 	}
 }

@@ -14,6 +14,7 @@ import edu.kit.joana.ifc.sdg.core.conc.ProbabilisticNIChecker;
 import edu.kit.joana.ifc.sdg.core.violations.ClassifiedViolation;
 import edu.kit.joana.ifc.sdg.graph.SDG;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
+import edu.kit.joana.ifc.sdg.graph.WALAVarLoc;
 import edu.kit.joana.ifc.sdg.graph.chopper.Chopper;
 import edu.kit.joana.ifc.sdg.lattice.IStaticLattice;
 import edu.kit.joana.ifc.sdg.lattice.NotInLatticeException;
@@ -119,5 +120,14 @@ public class ChoppingBasedIFC extends IFC {
 			return n.isInformationSink();
 		}
 		
+	}
+
+	/* (non-Javadoc)
+	 * @see edu.kit.joana.ifc.sdg.core.IFC#checkIFlow2wala()
+	 */
+	@Override
+	public Collection<WALAVarLoc> checkIFlow2wala() throws NotInLatticeException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

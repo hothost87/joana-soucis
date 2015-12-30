@@ -95,7 +95,11 @@ public abstract class Iterative2PhaseSlicer implements Slicer {
 
         		SDGNode adjacent = reachedNode(e);
         		Phase status = slice.get(adjacent);
-
+        		
+//        		System.out.println("from: " + next.getLabel() + " to: " + adjacent.getLabel() + " edge: " + e.getKind());
+//
+//        		System.out.println(g.getInstructionIndex(next));
+        		
         		if (status == null // hasn't been visited before
         				|| (status == phase2 && (currentPhase == phase1 || e.getKind().isThreadEdge()))) {
 

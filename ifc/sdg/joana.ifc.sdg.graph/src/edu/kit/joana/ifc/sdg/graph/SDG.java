@@ -19,12 +19,14 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -55,7 +57,13 @@ public class SDG extends JoanaGraph implements Cloneable {
 
     /** maps sdg nodes to ssa instruction indices */
     private TIntIntMap node2iindex = null;
-
+    
+//    private Map<Integer, WALAIRLoc> node2wala = null;
+    
+    private Map<WALAIRLoc, List<Integer>> wala2node = null;
+    
+    private Map<Integer, List<WALAVarDefLoc>> node2def = null;
+    
     /** represents "no ssa instruction index" - returned by {@link #getInstructionIndex(SDGNode)} if there is no
      *  ssa instruction index for the given node
      */
@@ -126,9 +134,65 @@ public class SDG extends JoanaGraph implements Cloneable {
     public void setNode2Instr(TIntIntMap node2iindex) {
     	this.node2iindex = node2iindex;
     }
+    
+//    public void setNode2wala(Map<Integer, WALAIRLoc> node2wala) {
+//    	this.node2wala = node2wala;
+//    }
+    
+    public void setwala2Node(Map<WALAIRLoc, List<Integer>> wala2node) {
+    	this.wala2node = wala2node;
+    }
+    
+    public void setnode2def(Map<Integer, List<WALAVarDefLoc>> node2def) {
+    	this.node2def = node2def;
+    }
+    
+//    public void setwalaCache(TIntObjectHashMap<WALAIRLoc> walaCache) {
+//    	this.walaCache = walaCache;
+//    }
 
     public void setEntryToCGNode(TIntIntMap entry2CGNode) {
     	this.entry2CGNode = entry2CGNode;
+    }
+    
+    public Collection<SDGNode> getSDGNode(WALAIRLoc loc) {
+    	    	
+    	Collection<SDGNode> ret = new ArrayList<SDGNode>();
+    	
+    	Collection<Integer> ids = wala2node.get(loc);
+    	
+    	if(ids != null) {
+    	
+    		for(int id : ids) {
+    			ret.add(this.getNode(id));
+    		}
+    	}
+    	
+    	return ret;
+
+    }
+    
+//    public List<SDGNode> getDefNodes(int nodeId) {
+//    	List<SDGNode> ret = new ArrayList<SDGNode>();
+//    	
+//    	List<WALAVarDefLoc> vdlocs = node2def.get(nodeId);
+//    	    	    	
+//    	if(vdlocs != null) {
+//    		for(WALAVarDefLoc vdloc : vdlocs) {
+//    			
+//    			SDGNode node = this.getNode(vdloc.getNodeId());
+//    			
+//    			if(!ret.contains(node))
+//    				ret.add(node);
+//    			
+//    		}
+//    	}
+//    	
+//    	return ret;
+//    }
+    
+    public List<WALAVarDefLoc> getVDLocs(int nodeId) {
+    	return node2def.get(nodeId);
     }
 
     /**

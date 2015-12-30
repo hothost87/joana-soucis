@@ -166,12 +166,12 @@ public final class CallGraph extends AbstractJoanaGraph<CallGraph.Node, CallGrap
 
 		while (!todo.isEmpty()) {
 			final CGNode current = todo.removeFirst();
-
+			
 			final IR ir = current.getIR();
 			if (ir == null) {
 				continue;
 			}
-
+			
 			final Node curNode = findOrCreate(current);
 
 			if (filter.ignoreCallsFrom(current.getMethod())) {
@@ -194,7 +194,7 @@ public final class CallGraph extends AbstractJoanaGraph<CallGraph.Node, CallGrap
 
 					for (CGNode tgtcg : targets) {
 						final IMethod tgt = tgtcg.getMethod();
-
+												
 						if (filter.ignoreCallsTo(tgt)) {
 							continue;
 						}

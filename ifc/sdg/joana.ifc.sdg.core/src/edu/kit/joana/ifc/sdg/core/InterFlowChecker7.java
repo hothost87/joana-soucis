@@ -24,6 +24,7 @@ import edu.kit.joana.ifc.sdg.core.violations.ClassifiedViolation;
 import edu.kit.joana.ifc.sdg.core.violations.paths.PathGenerator;
 import edu.kit.joana.ifc.sdg.core.violations.paths.ViolationPathes;
 import edu.kit.joana.ifc.sdg.graph.SDG;
+import edu.kit.joana.ifc.sdg.graph.WALAVarLoc;
 import edu.kit.joana.ifc.sdg.lattice.IStaticLattice;
 import edu.kit.joana.ifc.sdg.lattice.LatticeUtil;
 import edu.kit.joana.ifc.sdg.lattice.NotInLatticeException;
@@ -274,5 +275,14 @@ public class InterFlowChecker7 extends IFC {
 			}
 		}
 		return ret.toString();
+	}
+
+	/* (non-Javadoc)
+	 * @see edu.kit.joana.ifc.sdg.core.IFC#checkIFlow2wala()
+	 */
+	@Override
+	public Collection<WALAVarLoc> checkIFlow2wala() throws NotInLatticeException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

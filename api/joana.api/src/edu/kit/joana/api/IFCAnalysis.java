@@ -7,6 +7,7 @@
  */
 package edu.kit.joana.api;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -22,6 +23,8 @@ import com.ibm.wala.types.annotations.Annotation;
 import edu.kit.joana.api.annotations.AnnotationType;
 import edu.kit.joana.api.annotations.IFCAnnotation;
 import edu.kit.joana.api.annotations.IFCAnnotationManager;
+import edu.kit.joana.api.annotations.IFCAnnotationSDG;
+import edu.kit.joana.api.annotations.IFCAnnotationSDGManager;
 import edu.kit.joana.api.annotations.NodeAnnotationInfo;
 import edu.kit.joana.api.lattice.BuiltinLattices;
 import edu.kit.joana.api.sdg.SDGActualParameter;
@@ -37,6 +40,7 @@ import edu.kit.joana.ifc.sdg.core.IFC;
 import edu.kit.joana.ifc.sdg.core.ReduceRedundantFlows;
 import edu.kit.joana.ifc.sdg.core.SecurityNode;
 import edu.kit.joana.ifc.sdg.core.SlicingBasedIFC;
+import edu.kit.joana.ifc.sdg.core.SoucisSlicingBasedIFC;
 import edu.kit.joana.ifc.sdg.core.conc.ConflictScanner;
 import edu.kit.joana.ifc.sdg.core.conc.DataConflict;
 import edu.kit.joana.ifc.sdg.core.conc.LSODNISlicer;
@@ -49,6 +53,8 @@ import edu.kit.joana.ifc.sdg.core.violations.IIllegalFlow;
 import edu.kit.joana.ifc.sdg.core.violations.IViolation;
 import edu.kit.joana.ifc.sdg.core.violations.IllegalFlow;
 import edu.kit.joana.ifc.sdg.core.violations.ViolationMapper;
+import edu.kit.joana.ifc.sdg.graph.SDGNode;
+import edu.kit.joana.ifc.sdg.graph.WALAVarLoc;
 import edu.kit.joana.ifc.sdg.graph.slicer.conc.I2PBackward;
 import edu.kit.joana.ifc.sdg.graph.slicer.conc.I2PForward;
 import edu.kit.joana.ifc.sdg.graph.slicer.graph.threads.MHPAnalysis;
@@ -73,6 +79,7 @@ public class IFCAnalysis {
 
 	private SDGProgram program;
 	private IFCAnnotationManager annManager;
+	private IFCAnnotationSDGManager annSDGManager;
 	private IStaticLattice<String> secLattice;
 	private IFCType ifcType = IFCType.CLASSICAL_NI;
 	private IFC ifc;
@@ -102,6 +109,7 @@ public class IFCAnalysis {
 		}
 		this.program = program;
 		this.annManager = new IFCAnnotationManager(program);
+		this.annSDGManager = new IFCAnnotationSDGManager(program);
 		if (this.ifc != null) {
 			this.ifc.setSDG(this.program.getSDG());
 		} else {
@@ -115,6 +123,57 @@ public class IFCAnalysis {
 		switch (this.ifcType) {
 		case CLASSICAL_NI:
 			this.ifc = new SlicingBasedIFC(this.program.getSDG(), secLattice, new I2PForward(this.program.getSDG()), new I2PBackward(this.program.getSDG()));
+			if (timeSensitiveAnalysis) {
+				if (this.program.getSDG().getThreadsInfo() == null) {
+					CSDGPreprocessor.preprocessSDG(this.program.getSDG());
+				}
+				this.ifc = new TimeSensitiveIFCDecorator(this.ifc);
+				if (removeRedundantFlows) {
+					this.ifc = ReduceRedundantFlows.makeReducingConcurrentIFC(this.ifc);
+				}
+			}
+			break;
+		case LSOD:
+			if (this.program.getSDG().getThreadsInfo() == null) {
+				CSDGPreprocessor.preprocessSDG(this.program.getSDG());
+			}
+			mhp = performMHPAnalysis(mhpType);
+			ConflictScanner lsodScanner = LSODNISlicer.simpleCheck(this.program.getSDG(), secLattice, mhp,
+			this.timeSensitiveAnalysis);
+			this.ifc = new ProbabilisticNIChecker(this.program.getSDG(), secLattice, lsodScanner,
+					mhp, this.timeSensitiveAnalysis);
+			break;
+		case RLSOD:
+			if (this.program.getSDG().getThreadsInfo() == null) {
+				CSDGPreprocessor.preprocessSDG(this.program.getSDG());
+			}
+			mhp = performMHPAnalysis(mhpType);
+			this.ifc = new ProbabilisticNIChecker(this.program.getSDG(), secLattice, mhp,
+					this.timeSensitiveAnalysis);
+			break;
+		default:
+			throw new IllegalStateException("unhandled ifc type: " + ifcType + "!");
+		}
+	}
+	
+	private void setIFCType(IFCType ifcType, MHPType mhpType, Collection<SDGNode> nodes) {
+		this.ifcType = ifcType;
+		MHPAnalysis mhp;
+		switch (this.ifcType) {
+		case CLASSICAL_NI:
+			this.ifc = new SlicingBasedIFC(this.program.getSDG(), secLattice, new I2PForward(this.program.getSDG()), new I2PBackward(this.program.getSDG()));
+			if (timeSensitiveAnalysis) {
+				if (this.program.getSDG().getThreadsInfo() == null) {
+					CSDGPreprocessor.preprocessSDG(this.program.getSDG());
+				}
+				this.ifc = new TimeSensitiveIFCDecorator(this.ifc);
+				if (removeRedundantFlows) {
+					this.ifc = ReduceRedundantFlows.makeReducingConcurrentIFC(this.ifc);
+				}
+			}
+			break;
+		case SOUCIS_NI:
+			this.ifc = new SoucisSlicingBasedIFC(this.program.getSDG(), secLattice, new I2PForward(this.program.getSDG()), new I2PBackward(this.program.getSDG()), nodes);
 			if (timeSensitiveAnalysis) {
 				if (this.program.getSDG().getThreadsInfo() == null) {
 					CSDGPreprocessor.preprocessSDG(this.program.getSDG());
@@ -243,9 +302,82 @@ public class IFCAnalysis {
 		annManager.unapplyAllAnnotations();
 		return vios;
 	}
+	
+	public Collection<WALAVarLoc> doIFConSDGAnnotation(IFCType ifcType, MHPType mhpType) {
+		assert ifc != null && ifc.getSDG() != null && ifc.getLattice() != null;
+		annSDGManager.applyAllAnnotations();
+		setIFCType(ifcType, mhpType);
+		long time = 0L;
+		time = System.currentTimeMillis();
+		Collection<WALAVarLoc> vios = ifc.checkIFlow2wala();
+		time = System.currentTimeMillis() - time;
+		debug.outln(String.format("IFC Analysis took %d ms.", time));
+		annSDGManager.unapplyAllAnnotations();
+		return vios;
+	}
+	
+	public Collection<? extends IViolation<SecurityNode>> doIFC(IFCType ifcType, MHPType mhpType, Collection<SDGNode> nodes) {
+		assert ifc != null && ifc.getSDG() != null && ifc.getLattice() != null;
+		annManager.applyAllAnnotations();
+		setIFCType(ifcType, mhpType, nodes);
+		long time = 0L;
+		time = System.currentTimeMillis();
+		Collection<? extends IViolation<SecurityNode>> vios = ifc.checkIFlow();
+		time = System.currentTimeMillis() - time;
+		debug.outln(String.format("IFC Analysis took %d ms.", time));
+		annManager.unapplyAllAnnotations();
+		return vios;
+	}
 
 	public TObjectIntMap<? extends IViolation<SDGProgramPart>> doIFCAndGroupByPPPart(IFCType ifcType) {
 		return groupByPPPart(doIFC(ifcType));
+	}
+	
+	public Collection<SDGProgramPart> getTaintedSinks(Collection<? extends IViolation<SecurityNode>> vios) {
+		
+		annManager.applyAllAnnotations();
+		ViolationMapper<SecurityNode, IViolation<SDGProgramPart>> transl = new ViolationMapper<SecurityNode, IViolation<SDGProgramPart>>() {
+
+			@Override
+			protected IIllegalFlow<SDGProgramPart> mapIllegalFlow(IIllegalFlow<SecurityNode> iFlow) {
+				return new IllegalFlow<SDGProgramPart>(annManager.resolve(iFlow.getSource()), annManager.resolve(iFlow.getSink()), iFlow.getAttackerLevel());
+			}
+
+			@Override
+			protected DataConflict<SDGProgramPart> mapDataConflict(DataConflict<SecurityNode> dc) {
+				SDGProgramPart ppInfluenced = annManager.resolve(dc.getInfluenced());
+				return new DataConflict<SDGProgramPart>(resolveConflictEdge(dc.getConflictEdge()), ppInfluenced, dc.getAttackerLevel(), resolveTrigger(dc.getTrigger()));
+			}
+			
+			private Maybe<SDGProgramPart> resolveTrigger(Maybe<SecurityNode> trigger) {
+				if (trigger.isNothing()) {
+					return Maybe.<SDGProgramPart>nothing();
+				} else {
+					return Maybe.just(annManager.resolve(trigger.extract()));
+				}
+			}
+			
+			private ConflictEdge<SDGProgramPart> resolveConflictEdge(ConflictEdge<SecurityNode> confEdge) {
+				SDGProgramPart src = annManager.resolve(confEdge.getSource());
+				SDGProgramPart tgt = annManager.resolve(confEdge.getTarget());
+				return new ConflictEdge<SDGProgramPart>(src, tgt);
+			}
+
+			@Override
+			protected OrderConflict<SDGProgramPart> mapOrderConflict(OrderConflict<SecurityNode> oc) {
+				return new OrderConflict<SDGProgramPart>(resolveConflictEdge(oc.getConflictEdge()), oc.getAttackerLevel(), resolveTrigger(oc.getTrigger()));
+			}
+			
+		};
+		Collection<SDGProgramPart> ret = new ArrayList();
+		for (IViolation<SecurityNode> vio : vios) {
+			IIllegalFlow<SDGProgramPart> flow = (IIllegalFlow<SDGProgramPart>)transl.mapSingle(vio);
+			SDGProgramPart sink = flow.getSink();
+			if(!ret.contains(sink))
+				ret.add(sink);
+		}
+		annManager.unapplyAllAnnotations();
+		return ret;
 	}
 	
 	public TObjectIntMap<IViolation<SDGProgramPart>> groupByPPPart(Collection<? extends IViolation<SecurityNode>> vios) {
@@ -335,6 +467,19 @@ public class IFCAnalysis {
 
 	public void addSinkAnnotation(SDGProgramPart toMark, String level) {
 		addSinkAnnotation(toMark, level, null);
+	}
+	
+	//extend JOANA to annotate on SDG nodes
+	public void addSinkAnnotation(SDGNode toMark, String level) {
+		addAnnotation(new IFCAnnotationSDG(AnnotationType.SINK, level, toMark));
+	}
+	
+	public void addSourceAnnotation(SDGNode toMark, String level) {
+		addAnnotation(new IFCAnnotationSDG(AnnotationType.SOURCE, level, toMark));
+	}
+	
+	public void addAnnotation(IFCAnnotationSDG annotation) {
+		annSDGManager.addAnnotation(annotation);
 	}
 
 	@Deprecated

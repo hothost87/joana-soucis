@@ -8,7 +8,7 @@
 package edu.kit.joana.api;
 
 public enum IFCType {
-	CLASSICAL_NI, LSOD, RLSOD;
+	CLASSICAL_NI, LSOD, RLSOD, SOUCIS_NI;
 
 	@Override
 	public String toString() {
@@ -19,6 +19,8 @@ public enum IFCType {
 			return "relaxed low-security observational determinism (RLSOD)";
 		case LSOD:
 			return "low-security observational determinism (LSOD)";
+		case SOUCIS_NI:
+			return "SOUCIS non-interference";
 		default:
 			throw new IllegalStateException("not all values of this enumeration are handeled!");
 		}

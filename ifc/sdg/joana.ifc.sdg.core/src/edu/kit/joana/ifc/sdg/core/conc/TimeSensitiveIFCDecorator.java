@@ -15,6 +15,7 @@ import edu.kit.joana.ifc.sdg.core.violations.IIllegalFlow;
 import edu.kit.joana.ifc.sdg.core.violations.IViolation;
 import edu.kit.joana.ifc.sdg.core.violations.ViolationFilter;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
+import edu.kit.joana.ifc.sdg.graph.WALAVarLoc;
 import edu.kit.joana.ifc.sdg.graph.slicer.conc.nanda.Nanda;
 import edu.kit.joana.ifc.sdg.graph.slicer.conc.nanda.NandaBackward;
 import edu.kit.joana.ifc.sdg.lattice.NotInLatticeException;
@@ -62,6 +63,15 @@ public class TimeSensitiveIFCDecorator extends IFC {
 			Collection<SDGNode> tsSlice = tsbwSlicer.slice(iFlow.getSink());
 			return tsSlice.contains(iFlow.getSource());
 		}
+	}
+
+	/* (non-Javadoc)
+	 * @see edu.kit.joana.ifc.sdg.core.IFC#checkIFlow2wala()
+	 */
+	@Override
+	public Collection<WALAVarLoc> checkIFlow2wala() throws NotInLatticeException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

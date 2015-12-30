@@ -9,8 +9,12 @@ package edu.kit.joana.wala.core;
 
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +64,8 @@ import com.ibm.wala.util.graph.GraphIntegrity.UnsoundGraphException;
 import com.ibm.wala.util.graph.impl.SparseNumberedGraph;
 
 import edu.kit.joana.ifc.sdg.graph.SDG;
+import edu.kit.joana.ifc.sdg.graph.WALAIRLoc;
+import edu.kit.joana.ifc.sdg.graph.WALAVarDefLoc;
 import edu.kit.joana.ifc.sdg.util.SDGConstants;
 import edu.kit.joana.util.Config;
 import edu.kit.joana.util.Log;
@@ -98,6 +104,7 @@ import edu.kit.joana.wala.util.pointsto.ObjSensZeroXCFABuilder;
 import edu.kit.joana.wala.util.pointsto.WalaPointsToUtil;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
@@ -566,7 +573,7 @@ public class SDGBuilder implements CallGraphFilter {
 			try {
 				interprocExceptionResult = NullPointerAnalysis.computeInterprocAnalysis(
 						NullPointerAnalysis.DEFAULT_IGNORE_EXCEPTIONS, nonPrunedCG,	cfg.defaultExceptionMethodState,
-						progress, cfg.pruneDDEdgesToDanglingExceptionNodes);
+						progress);
 			} catch (WalaException e) {
 				throw new CancelException(e);
 			}
@@ -757,7 +764,7 @@ public class SDGBuilder implements CallGraphFilter {
 			final IProgressMonitor progress) throws UnsoundGraphException, CancelException {
 		final ExceptionPruningAnalysis<SSAInstruction, IExplodedBasicBlock> npa = NullPointerAnalysis
 				.createIntraproceduralExplodedCFGAnalysis(NullPointerAnalysis.DEFAULT_IGNORE_EXCEPTIONS, n.getIR(),
-						null, cfg.defaultExceptionMethodState, cfg.pruneDDEdgesToDanglingExceptionNodes);
+						null, cfg.defaultExceptionMethodState);
 
 		npa.compute(progress);
 
@@ -1034,7 +1041,7 @@ public class SDGBuilder implements CallGraphFilter {
 			throws IllegalArgumentException, CallGraphBuilderCancelException {
 
 		com.ibm.wala.ipa.callgraph.CallGraph curcg = walaCG.cg;
-
+		
         if (prune >= 0) {
 			CallGraphPruning cgp = new CallGraphPruning(walaCG.cg);
 			Set<CGNode> appl = cgp.findNodes(prune, cfg.pruningPolicy);
@@ -1043,6 +1050,8 @@ public class SDGBuilder implements CallGraphFilter {
 		}
 
 		progress.worked(1);
+		
+		Iterator<CGNode> it = curcg.iterator();
 
 		final CallGraph cg = CallGraph.build(this, curcg, walaCG.pts, cfg.entry, progress);
 
@@ -1386,12 +1395,113 @@ public class SDGBuilder implements CallGraphFilter {
 				SSAInstruction i = pdg.getInstruction(node);
 				if (i != null) {
 					ret.put(node.getId(), i.iindex);
+					
 				}
 			}
 		}
 
 		return ret;
 	}
+	
+	public Map<Integer, WALAIRLoc> getPDGNode2wala() {
+		Map<Integer, WALAIRLoc> ret = new HashMap<Integer, WALAIRLoc>();
+
+		for (PDG pdg : getAllPDGs()) {
+			for (PDGNode node : pdg.vertexSet()) {
+				WALAIRLoc loc = pdg.getWALAIRLoc(node.getId());
+				if (loc != null) {
+					ret.put(node.getId(), loc);
+					
+					//TODO: figure out why pdg node with same id visited multiple times
+					
+				}
+			}
+		}
+
+		return ret;
+	}
+	
+	public Map<WALAIRLoc, List<Integer>> getwala2PDGNode() {
+		Map<WALAIRLoc, List<Integer>> ret = new HashMap<WALAIRLoc, List<Integer>>();
+
+		for (PDG pdg : getAllPDGs()) {
+			for (PDGNode node : pdg.vertexSet()) {
+				WALAIRLoc loc = pdg.getWALAIRLoc(node.getId());
+				if (loc != null) {
+					
+					if(ret.containsKey(loc)) {
+												
+						List<Integer> list = ret.get(loc);
+						
+						if(!list.contains(node.getId())) {
+							
+							list.add(node.getId());
+							
+						} 
+						
+//						else {
+//							System.err.println("duplicate wala node representation!");
+//						}
+						
+						ret.put(loc, list);
+						
+					} else {
+						List<Integer> list = new ArrayList<Integer>();
+						list.add(node.getId());
+						ret.put(loc, list);
+					}
+					
+				}
+			}
+		}
+
+		return ret;
+	}
+	
+	public Map<Integer, List<WALAVarDefLoc>> getPDGNode2def() {
+		Map<Integer, List<WALAVarDefLoc>> ret = new HashMap<Integer, List<WALAVarDefLoc>>();
+
+		for (PDG pdg : getAllPDGs()) {
+			for (PDGNode node : pdg.vertexSet()) {
+				List<WALAVarDefLoc> locs = pdg.getWALAVarDefLoc(node.getId());
+				if (locs != null) {
+					
+					if(ret.containsKey(node.getId())) {
+												
+						List<WALAVarDefLoc> vdlocs = ret.get(node.getId());
+						
+						for(WALAVarDefLoc loc : locs) {
+							if(!vdlocs.contains(loc))
+								vdlocs.add(loc);
+						}
+						
+						ret.put(node.getId(), vdlocs);
+						
+					} else {
+						List<WALAVarDefLoc> vdlocs = new ArrayList<WALAVarDefLoc>();
+						
+						vdlocs.addAll(locs);
+						
+						ret.put(node.getId(), vdlocs);
+					}
+					
+				}
+			}
+		}
+
+		return ret;
+	}
+	
+//	public TIntObjectHashMap<WALAIRLoc> getwalaCache() {
+//		TIntObjectHashMap<WALAIRLoc> ret = new TIntObjectHashMap<WALAIRLoc>();
+//
+//		for (PDG pdg : getAllPDGs()) {
+//			TIntObjectHashMap<WALAIRLoc> pdgCache = pdg.getwalaCache();
+//			ret.putAll(pdgCache);
+//		}
+//
+//		return ret;
+//	}
 
 	/**
 	 * Returns a mapping between the entry nodes of the various pdgs to the id

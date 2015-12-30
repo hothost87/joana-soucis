@@ -8,6 +8,7 @@
 package edu.kit.joana.wala.core;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,10 +33,12 @@ import com.ibm.wala.ipa.callgraph.CGNode;
 import com.ibm.wala.ipa.callgraph.propagation.InstanceKey;
 import com.ibm.wala.ipa.callgraph.propagation.PointerAnalysis;
 import com.ibm.wala.shrikeCT.InvalidClassFileException;
+import com.ibm.wala.ssa.DefUse;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
 import com.ibm.wala.ssa.SSAArrayLoadInstruction;
 import com.ibm.wala.ssa.SSAArrayStoreInstruction;
+import com.ibm.wala.ssa.SSAConditionalBranchInstruction;
 import com.ibm.wala.ssa.SSAGetCaughtExceptionInstruction;
 import com.ibm.wala.ssa.SSAGetInstruction;
 import com.ibm.wala.ssa.SSAInstruction;
@@ -57,6 +60,9 @@ import com.ibm.wala.util.intset.MutableIntSet;
 import com.ibm.wala.util.intset.OrdinalSet;
 import com.ibm.wala.util.intset.OrdinalSetMapping;
 
+import edu.kit.joana.ifc.sdg.graph.WALAIRLoc;
+import edu.kit.joana.ifc.sdg.graph.WALAVarDefLoc;
+import edu.kit.joana.ifc.sdg.graph.WALAVarLoc;
 import edu.kit.joana.ifc.sdg.util.BytecodeLocation;
 import edu.kit.joana.ifc.sdg.util.SDGConstants;
 import edu.kit.joana.util.Log;
@@ -98,6 +104,12 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 	// equals is bogus on ssa instructions, but comparing iindex works
 	private final Map<PDGNode, SSAInstruction> node2instr = new HashMap<PDGNode, SSAInstruction>();
 	private final Map<SSAInstruction, PDGNode> instr2node = new HashMap<SSAInstruction, PDGNode>();
+	
+	private final Map<Integer, WALAIRLoc> node2wala = new HashMap<Integer, WALAIRLoc>();
+//	private final Map<WALAIRLoc, Integer> wala2node = new HashMap<WALAIRLoc, Integer>();
+		
+	private final Map<Integer, List<WALAVarDefLoc>> node2def = new HashMap<Integer, List<WALAVarDefLoc>>();
+		
 	private final List<PDGNode> calls = new LinkedList<PDGNode>();
 	private final Map<PDGNode, PDGNode[]> call2in = new HashMap<PDGNode, PDGNode[]>();
 	private final Map<PDGNode, List<PDGField>> call2staticIn = new HashMap<PDGNode, List<PDGField>>();
@@ -389,9 +401,17 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 					}
 				} else {
 					for (int i = 0; i < instr.getNumberOfUses(); i++) {
+						
 						PDGNode defNode = var2node.get(instr.getUse(i));
 						if (defNode != null) {
 							addEdge(defNode, node, PDGEdge.Kind.DATA_DEP);
+						
+							//for now, only add node2def mapping for conditional instructions
+							//TODO: add node2def mapping for more kinds of instructions?
+							if(instr instanceof SSAConditionalBranchInstruction) {
+								addDefUseMapping(defNode, node, ir, instr, i);
+							}
+														
 						}
 					}
 				}
@@ -464,6 +484,7 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 				// do not add control dep to exception formal out. there is already a
 				// connection through data dependence from ret _exception_ field
 				if (!(from.getKind() == PDGNode.Kind.CALL && to == exception)) {
+						
 					addEdge(from, to, (from == entry && to == exit ? PDGEdge.Kind.CONTROL_DEP_EXPR : PDGEdge.Kind.CONTROL_DEP));
 				}
 			}
@@ -1233,8 +1254,15 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 			SSAInstruction instr = it.next();
 			instr.visit(visitor);
 			PDGNode node = visitor.lastNode;
+			
 			node2instr.put(node, instr);
 			instr2node.put(instr, node);
+			
+			WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr);
+									
+			node2wala.put(node.getId(), loc);
+//			wala2node.put(loc, node.getId());
+			
 		}
 
 		// add root nodes for static field accesses
@@ -1269,32 +1297,125 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 
 			if (fr.base != null) {
 				node2instr.put(fr.base, instr);
+				
+//				WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr.iindex);
+//				node2wala.put(fr.base.getId(), loc);
+//				wala2node.put(loc, fr.base.getId());
 			}
 
 			if (fr.accfield != null) {
 				node2instr.put(fr.accfield, instr);
+				
+//				WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr.iindex);
+//				node2wala.put(fr.accfield.getId(), loc);
+//				wala2node.put(loc, fr.accfield.getId());
 			}
 
 			if (fr.index != null) {
 				node2instr.put(fr.index, instr);
+				
+//				WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr.iindex);
+//				node2wala.put(fr.index.getId(), loc);
+//				wala2node.put(loc, fr.index.getId());
 			}
 		}
 
 		for (final PDGField fw : hwrite) {
 			final SSAInstruction instr = getInstruction(fw.node);
-
+			
 			if (fw.base != null) {
 				node2instr.put(fw.base, instr);
+				
+//				WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr.iindex);
+//				node2wala.put(fw.base.getId(), loc);
+//				wala2node.put(loc, fw.base.getId());
 			}
 
 			if (fw.accfield != null) {
 				node2instr.put(fw.accfield, instr);
+				
+//				WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr.iindex);
+//				node2wala.put(fw.accfield.getId(), loc);
+//				wala2node.put(loc, fw.accfield.getId());
 			}
 
 			if (fw.index != null) {
 				node2instr.put(fw.index, instr);
+				
+//				WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instr.iindex);
+//				node2wala.put(fw.index.getId(), loc);
+//				wala2node.put(loc, fw.index.getId());
 			}
 		}
+	}
+	
+	private void addDefUseMapping(PDGNode defNode, PDGNode node, final IR ir, SSAInstruction instruction, int i) {
+		
+		if(!node2def.containsKey(node.getId())) {
+		
+			WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instruction);
+			
+			WALAVarLoc varloc = new WALAVarLoc(instruction.getUse(i), loc);
+		
+			WALAVarDefLoc vdloc = new WALAVarDefLoc(varloc, defNode.getId());
+			
+			List<WALAVarDefLoc> vdlocs = new ArrayList<WALAVarDefLoc>();
+			
+			vdlocs.add(vdloc);
+			
+			node2def.put(node.getId(), vdlocs);
+			
+		} else {
+			
+			List<WALAVarDefLoc> vdlocs = node2def.get(node.getId());
+			
+			WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), instruction);
+			
+			WALAVarLoc varloc = new WALAVarLoc(instruction.getUse(i), loc);
+			
+			WALAVarDefLoc vdloc = new WALAVarDefLoc(varloc, defNode.getId());
+			
+			if(!vdlocs.contains(vdloc))
+				 vdlocs.add(vdloc);
+			 
+			 node2def.put(node.getId(), vdlocs);
+			 
+		}
+		
+//		DefUse du = cgNode.getDU();
+//		
+//		for(int i = 0; i<instruction.getNumberOfUses(); i++) {
+//			 int valuenum = instruction.getUse(i);
+//			 SSAInstruction def = du.getDef(valuenum);
+//			 if(def != null) {
+//				 
+//				 if(!node2def.containsKey(node.getId())) {
+//					 WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), def);
+//					 
+//					 WALAVarDefLoc vdloc = new WALAVarDefLoc(valuenum, loc);
+//					 
+//					 List<WALAVarDefLoc> vdlocs = new ArrayList<WALAVarDefLoc>();
+//					 
+//					 vdlocs.add(vdloc);
+//					 
+//					 node2def.put(node.getId(), vdlocs);
+//					 
+//				 } else {
+//					 
+//					 List<WALAVarDefLoc> vdlocs = node2def.get(node.getId());
+//					 
+//					 WALAIRLoc loc = new WALAIRLoc(cgNode.getGraphNodeId(), def);
+//					 
+//					 WALAVarDefLoc vdloc = new WALAVarDefLoc(valuenum, loc);
+//					 
+//					 if(!vdlocs.contains(vdloc))
+//						 vdlocs.add(vdloc);
+//					 
+//					 node2def.put(node.getId(), vdlocs);
+//					 
+//				 }
+//			 }	    						 
+//		 }
 	}
 
 	private void addDummyConnections() {
@@ -1332,6 +1453,12 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 		if (instr != null) {
 			node2instr.remove(node);
 			instr2node.remove(instr);
+			
+			node2wala.remove(node.getId());
+			
+//			wala2node.remove(new WALAIRLoc(cgNode.getGraphNodeId(), instr));
+			
+			node2def.remove(node.getId());
 		}
 
 		return super.removeNode(node);
@@ -2349,6 +2476,14 @@ public final class PDG extends DependenceGraph implements INodeWithNumber {
 
 	public boolean isImmutable(final TypeReference tref) {
 		return builder.isImmutableStub(tref);
+	}
+	
+	public WALAIRLoc getWALAIRLoc(int nodeId) {
+		return node2wala.get(nodeId);
+	}
+	
+	public List<WALAVarDefLoc> getWALAVarDefLoc(int nodeId) {
+		return node2def.get(nodeId);
 	}
 
 }

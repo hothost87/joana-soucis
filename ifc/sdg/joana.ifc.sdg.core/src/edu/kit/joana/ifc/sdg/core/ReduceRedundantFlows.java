@@ -17,6 +17,7 @@ import edu.kit.joana.ifc.sdg.core.violations.IViolation;
 import edu.kit.joana.ifc.sdg.core.violations.ViolationFilter;
 import edu.kit.joana.ifc.sdg.core.violations.ViolationPartialMapper;
 import edu.kit.joana.ifc.sdg.graph.SDGNode;
+import edu.kit.joana.ifc.sdg.graph.WALAVarLoc;
 import edu.kit.joana.ifc.sdg.graph.chopper.barrier.BarrierChopper;
 import edu.kit.joana.ifc.sdg.graph.chopper.barrier.NonSameLevelBarrierChopper;
 import edu.kit.joana.ifc.sdg.graph.chopper.barrier.SimpleThreadBarrierChopper;
@@ -141,6 +142,15 @@ public class ReduceRedundantFlows extends IFC {
 		protected Maybe<SDGNode> maybeMapIllegalFlow(IIllegalFlow<SecurityNode> iFlow) {
 			return Maybe.just((SDGNode) iFlow.getSink());
 		}
+	}
+
+	/* (non-Javadoc)
+	 * @see edu.kit.joana.ifc.sdg.core.IFC#checkIFlow2wala()
+	 */
+	@Override
+	public Collection<WALAVarLoc> checkIFlow2wala() throws NotInLatticeException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 

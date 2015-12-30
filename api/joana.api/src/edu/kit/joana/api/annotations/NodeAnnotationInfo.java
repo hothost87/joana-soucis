@@ -12,6 +12,7 @@ import edu.kit.joana.ifc.sdg.core.SecurityNode;
 public class NodeAnnotationInfo {
 	private final SecurityNode node;
 	private final IFCAnnotation annotation;
+	private final IFCAnnotationSDG annotationSDG;
 	private final String which;
 
 	public static final String PROV = "provided";
@@ -22,6 +23,14 @@ public class NodeAnnotationInfo {
 		this.node = node;
 		this.annotation = annotation;
 		this.which = which;
+		annotationSDG = null;
+	}
+	
+	public NodeAnnotationInfo(SecurityNode node, IFCAnnotationSDG annotationSDG, String which) {
+		this.node = node;
+		this.annotationSDG = annotationSDG;
+		this.which = which;
+		this.annotation = null;
 	}
 
 	/**
@@ -36,6 +45,13 @@ public class NodeAnnotationInfo {
 	 */
 	public IFCAnnotation getAnnotation() {
 		return annotation;
+	}
+	
+	/**
+	 * @return the annotationSDG
+	 */
+	public IFCAnnotationSDG getAnnotationSDG() {
+		return annotationSDG;
 	}
 
 	/**

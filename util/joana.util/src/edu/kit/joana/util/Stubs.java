@@ -20,7 +20,7 @@ import java.util.Properties;
  * @author Martin Mohr
  */
 public enum Stubs {
-	NO_STUBS("NONE", null), JRE_14("JRE_14", "jSDG-stubs-jre1.4.jar"), JRE_15("JRE_15", "jSDG-stubs-jre1.5.jar");
+	NO_STUBS("NONE", null), JRE_14("JRE_14", "jSDG-stubs-jre1.4.jar"), JRE_15("JRE_15", "jSDG-stubs-jre1.5.jar"), JRE_17("JRE_17", "jSDG-stubs-jre1.7.jar");
 
 	private static final String PROPERTIES = "project.properties";
 
