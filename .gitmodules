@@ -1,3 +1,0 @@
-[submodule "contrib/wala"]
-	path = contrib/wala
-	url = git://github.com/mohrm/WALA.git
